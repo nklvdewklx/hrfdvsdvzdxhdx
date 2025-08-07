@@ -49,7 +49,11 @@ export const apiBusiness = {
         quote.status = 'converted';
         apiCore.update('quotes', quote.id, quote);
 
-        apiCore.logEvent('QUOTE_CONVERTED', `Converted quote #${quoteId} to order #${newOrder.id}`);
+        apiCore.logEvent(
+            'QUOTE_CONVERTED', 
+            `Converted quote #${quote.id} to order #${newOrder.id}`,
+            { customerId: newOrder.customerId, orderId: newOrder.id } // Add context
+        );
         apiCore.save();
         api.notifications.addNotification('success', `Quote "${quote.quoteNumber}" converted to Order #${newOrder.id}.`, { orderId: newOrder.id });
 
@@ -369,7 +373,11 @@ export const apiBusiness = {
         newInvoice.invoiceNumber = `INV-2025-${String(invoiceCount).padStart(3, '0')}`;
         
         const savedInvoice = apiCore.add('invoices', newInvoice);
-        apiCore.logEvent('INVOICE_GENERATED', `Generated invoice ${savedInvoice.invoiceNumber} for Order #${orderId}`);
+        apiCore.logEvent(
+            'INVOICE_GENERATED', 
+            `Generated invoice ${savedInvoice.invoiceNumber} for Order #${orderId}`,
+            { customerId: savedInvoice.customerId, orderId: orderId, invoiceId: savedInvoice.id } 
+        );
         apiCore.save();
 
         showToast(`Invoice ${savedInvoice.invoiceNumber} created!`, 'success');
@@ -381,7 +389,11 @@ export const apiBusiness = {
         const invoice = apiCore.get('invoices', invoiceId);
         if (invoice) {
             invoice.status = 'paid';
-            apiCore.logEvent('INVOICE_PAID', `Marked invoice #${invoice.invoiceNumber} as paid.`);
+            apiCore.logEvent(
+                'INVOICE_PAID', 
+                `Marked invoice #${invoice.invoiceNumber} as paid.`,
+                { customerId: invoice.customerId, orderId: invoice.orderId, invoiceId: invoice.id } // Add context
+            );
             apiCore.save();
             showToast(`Invoice ${invoice.invoiceNumber} marked as paid.`, 'success');
             api.notifications.addNotification('info', `Invoice ${invoice.invoiceNumber} has been marked as paid.`, { invoiceId: invoice.id, type: 'invoice_paid' });

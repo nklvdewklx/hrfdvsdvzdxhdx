@@ -4,7 +4,7 @@ import { storage } from './storage.js';
 import { api } from './api.js';
 
 export const apiCore = {
-    logEvent(action, details) {
+    logEvent(action, details, context = {}) { // Add a context parameter
         if (!App.state.db.events) {
             App.state.db.events = [];
         }
@@ -14,7 +14,8 @@ export const apiCore = {
             timestamp: new Date().toISOString(),
             user: api.security.getCurrentUserNameForAudit(),
             action,
-            details
+            details,
+            context // Store the context object
         };
         App.state.db.events.push(newEvent);
     },

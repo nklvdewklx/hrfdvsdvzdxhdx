@@ -145,6 +145,52 @@ export const detailsRenderer = {
             `;
         }).join('');
 
+        const activity = api.reports.getCustomerActivity(customerId);
+        const activityHtml = activity.length > 0 ? activity.map(item => {
+            const date = new Date(item.date).toLocaleString();
+            let icon, title, body;
+
+            switch (item.type) {
+                case 'note':
+                    icon = `<i data-lucide="message-square" class="w-5 h-5 text-yellow-400"></i>`;
+                    title = `Note Added`;
+                    body = `<p class="text-white">${item.details}</p>`;
+                    break;
+                case 'event':
+                    switch(item.action) {
+                        case 'QUOTE_CONVERTED':
+                            icon = `<i data-lucide="file-plus-2" class="w-5 h-5 text-green-400"></i>`;
+                            title = `Order Created`;
+                            break;
+                        case 'INVOICE_GENERATED':
+                            icon = `<i data-lucide="file-text" class="w-5 h-5 text-blue-400"></i>`;
+                            title = `Invoice Generated`;
+                            break;
+                        case 'INVOICE_PAID':
+                            icon = `<i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>`;
+                            title = `Invoice Paid`;
+                            break;
+                        default:
+                            icon = `<i data-lucide="zap" class="w-5 h-5 text-gray-400"></i>`;
+                            title = `System Event`;
+                            break;
+                    }
+                    body = `<p class="text-custom-grey">${item.details}</p><p class="text-xs text-custom-grey/50">User: ${item.user}</p>`;
+                    break;
+            }
+
+            return `
+                <div class="relative pl-10 pb-4">
+                    <div class="absolute left-0 top-1.5 w-5 h-5 flex items-center justify-center">${icon}</div>
+                    <div class="absolute left-2.5 top-8 bottom-0 w-px bg-white/10"></div>
+                    <p class="text-sm font-semibold text-custom-light-blue">${title}</p>
+                    <div class="text-sm">${body}</div>
+                    <p class="text-xs text-custom-grey/70 pt-1">${date}</p>
+                </div>
+            `;
+        }).join('') : `<p class="text-center py-4 text-custom-grey">No activity to show.</p>`;
+
+
         const html = `
         <div class="w-full max-w-7xl mx-auto pointer-events-auto h-full overflow-y-auto custom-scrollbar p-4 space-y-6">
             <div>
@@ -179,6 +225,14 @@ export const detailsRenderer = {
             <div class="glass-panel p-6 rounded-lg">
                 <h3 class="text-lg font-semibold text-custom-light-blue mb-4">Order History</h3>
                 <div class="overflow-x-auto"><table class="data-table"><thead><tr>${pageConfig.orders.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${ordersHtml || `<tr><td colspan="${pageConfig.orders.headers.length}" class="text-center py-4 text-custom-grey">No orders found.</td></tr>`}</tbody></table></div>
+            </div>
+
+            <div class="lg:col-span-1">
+            <div class="glass-panel p-6 rounded-lg">
+                <h3 class="text-lg font-semibold text-custom-light-blue mb-4">Customer Activity</h3>
+                <div class="relative">
+                    ${activityHtml}
+                </div>
             </div>
         </div>`;
         return html;

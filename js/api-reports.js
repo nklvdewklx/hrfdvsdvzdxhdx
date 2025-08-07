@@ -357,6 +357,37 @@ export const apiReports = {
         };
     },
 
+    getCustomerActivity(customerId) {
+        const customer = apiCore.get('customers', customerId);
+        if (!customer) return [];
+
+        // 1. Get all automatically logged events for this customer
+        const loggedEvents = (apiCore.get('events') || [])
+            .filter(event => event.context && event.context.customerId == customerId)
+            .map(event => ({
+                type: 'event',
+                date: event.timestamp,
+                user: event.user,
+                action: event.action,
+                details: event.details,
+                context: event.context
+            }));
+            
+        // 2. Get all manually added notes
+        const manualNotes = (customer.notes || [])
+            .map(note => ({
+                type: 'note',
+                date: note.date,
+                details: note.text,
+                user: 'Agent Note' // Or you could store the agent who added it
+            }));
+        
+        // 3. Combine and sort them chronologically
+        const fullActivity = [...loggedEvents, ...manualNotes];
+        fullActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        return fullActivity;
+    },
     // +++ NEW FUNCTION: Gathers daily stats for a specific agent +++
     getAgentDailySummary(agentId) {
         const todayStr = new Date().toISOString().split('T')[0];
