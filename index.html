@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROCTEC - Sales & Inventory Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="text-white">
+
+    <div id="map"></div>
+
+    <div id="app-container" class="flex flex-col h-screen">
+        <header id="header"
+            class="flex-shrink-0 flex justify-between items-center p-4 lg:px-6 lg:py-4 bg-black/20 backdrop-blur-sm border-b border-white/10 z-20">
+            <div class="flex items-center space-x-8">
+                <h1 class="text-2xl font-bold text-white">ROCTEC</h1>
+                <nav id="main-nav" class="hidden md:flex items-center space-x-2 text-custom-grey">
+                    <a href="#dashboard"
+                        class="nav-link hover:text-white transition-colors px-3 py-2 rounded-md">Dashboard</a>
+
+                    <div class="relative nav-dropdown">
+                        <button class="nav-link-header focus:outline-none px-3 py-2">Inventory
+                            <i data-lucide="chevron-down" class="inline-block w-4 h-4 ml-1"></i>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="#inventory" class="nav-link">Finished Goods</a>
+                            <a href="#components" class="nav-link">Components</a>
+                            <a href="#productionOrders" class="nav-link">Production Orders</a>
+                        </div>
+                    </div>
+
+                    <div class="relative nav-dropdown">
+                        <button class="nav-link-header focus-outline-none px-3 py-2">Sales
+                            <i data-lucide="chevron-down" class="inline-block w-4 h-4 ml-1"></i>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="#leads" class="nav-link">Leads</a>
+                            <a href="#quotes" class="nav-link">Quotes</a>
+                            <a href="#orders" class="nav-link">Orders</a>
+                            <a href="#invoices" class="nav-link">Invoices</a>
+                            <a href="#creditNotes" class="nav-link">Credit Notes</a>
+                            <a href="#customers" class="nav-link">Customers</a>
+                        </div>
+                    </div>
+
+                    <div class="relative nav-dropdown">
+                        <button class="nav-link-header focus:outline-none px-3 py-2">Purchasing
+                            <i data-lucide="chevron-down" class="inline-block w-4 h-4 ml-1"></i>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="#purchaseOrders" class="nav-link">Purchase Orders</a>
+                            <a href="#suppliers" class="nav-link">Suppliers</a>
+                        </div>
+                    </div>
+
+                    <a href="#agents"
+                        class="nav-link hover:text-white transition-colors px-3 py-2 rounded-md">Agents</a>
+                    <a href="#reports"
+                        class="nav-link hover:text-white transition-colors px-3 py-2 rounded-md">Reports</a>
+
+                    <div class="relative nav-dropdown">
+                        <button class="nav-link-header focus:outline-none px-3 py-2">Admin
+                            <i data-lucide="chevron-down" class="inline-block w-4 h-4 ml-1"></i>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="#users" class="nav-link">User Management</a>
+                            <a href="#taxRates" class="nav-link">Tax Rates</a>
+                            <a href="#events" class="nav-link">Audit Trail</a>
+                        </div>
+                    </div>
+
+                </nav>
+            </div>
+            <div class="flex items-center space-x-4">
+                <i data-lucide="search" id="search-icon" class="text-custom-grey hover:text-white cursor-pointer"></i>
+
+                <div class="relative" id="notification-bell-wrapper">
+                    <i data-lucide="bell" id="notification-bell"
+                        class="text-custom-grey hover:text-white cursor-pointer"></i>
+                    <span id="notification-count-badge"
+                        class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center hidden">0</span>
+                    <div id="notification-dropdown" class="notification-dropdown-menu">
+                        <div class="notification-header p-3 border-b border-white/10 flex justify-between items-center">
+                            <h3 class="font-semibold text-white">Notifications</h3>
+                            <button id="mark-all-read-btn" class="text-xs text-blue-400 hover:underline hidden">Mark all
+                                as read</button>
+                        </div>
+                        <div id="notification-dropdown-content" class="max-h-64 overflow-y-auto custom-scrollbar"></div>
+                        <div
+                            class="notification-footer p-2 text-center text-custom-grey text-xs border-t border-white/10">
+                            Click notification to view details.</div>
+                    </div>
+                </div>
+
+                <span id="logged-in-username" class="text-custom-grey text-sm">Guest</span>
+                <button id="login-logout-button"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center text-sm">
+                    <i data-lucide="log-in" class="w-4 h-4 mr-2"></i>Login
+                </button>
+                <i data-lucide="user-circle" id="user-circle-icon"
+                    class="text-custom-grey hover:text-white cursor-pointer"></i>
+            </div>
+        </header>
+
+        <main class="flex-grow relative overflow-hidden p-4 lg:p-6">
+            <aside id="left-sidebar"
+                class="absolute top-6 left-6 bottom-6 w-full max-w-sm lg:max-w-xs xl:max-w-sm flex-col space-y-6 overflow-y-auto custom-scrollbar pr-2 pt-0">
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Sales Summary (All-Time)</h2>
+                    <div class="text-center mb-4">
+                        <div class="relative inline-flex items-center justify-center">
+                            <svg class="w-24 h-24" viewbox="0 0 100 100">
+                                <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent"
+                                    r="42" cx="50" cy="50" />
+                                <circle id="dashboard-profit-ring" class="text-green-400" stroke-width="8"
+                                    stroke-linecap="round" stroke="currentColor" fill="transparent" r="42" cx="50"
+                                    cy="50"
+                                    style="stroke-dasharray: 264; stroke-dashoffset: 264; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 1s ease-out;" />
+                            </svg>
+                            <div class="absolute flex flex-col items-center justify-center">
+                                <span id="dashboard-total-revenue" class="text-3xl font-bold">$0</span>
+                                <span id="dashboard-total-profit" class="text-sm text-custom-grey">$0 Profit</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-around text-center text-custom-grey">
+                        <div>
+                            <p id="dashboard-completed-orders" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm">Completed Orders</p>
+                        </div>
+                        <div>
+                            <p id="dashboard-total-customers" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm">Total Customers</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <button id="dashboard-new-order-btn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center mx-auto">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>New Sales Order
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Sales Trend (Last 7 Days)</h2>
+                    <div id="salesTrendChart" class="h-40 rounded-md"></div>
+                </div>
+
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Inventory Summary</h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-custom-grey">Total Products</p>
+                                <p id="dashboard-total-products" class="text-2xl font-bold">0</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-custom-grey">Items in Stock</p>
+                                <p id="dashboard-items-in-stock" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm text-custom-grey">Low Stock Items</p>
+                            <p id="dashboard-low-stock-items" class="text-2xl font-bold text-yellow-400">0</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-custom-grey">Out of Stock</p>
+                            <p id="dashboard-out-of-stock-items" class="text-2xl font-bold text-red-500">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <button id="dashboard-create-po-btn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center mx-auto">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>Create Purchase Order
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <div id="main-content-area" class="absolute inset-0 p-6 flex justify-center items-center">
+            </div>
+
+            <aside id="right-sidebar"
+                class="absolute top-6 right-6 bottom-6 w-full max-w-sm lg:max-w-xs xl:max-w-sm flex-col space-y-6 overflow-y-auto custom-scrollbar pl-2 pt-0 ">
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Batches Nearing Expiry</h2>
+                    <div id="dashboard-nearing-expiry-list" class="space-y-3 text-sm">
+                    </div>
+                </div>
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Component Low Stock</h2>
+                    <div id="dashboard-low-components-list" class="space-y-3 text-sm">
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Top Selling Agents</h2>
+                    <div id="dashboard-top-agents-list" class="space-y-4 text-sm">
+                    </div>
+                </div>
+                <div class="glass-panel p-4 rounded-lg">
+                    <h2 class="text-lg font-semibold text-custom-light-blue mb-4">Recent Orders</h2>
+                    <div id="dashboard-recent-orders-list" class="space-y-4 text-sm">
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div id="modal-container"></div>
+
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+
+</body>
+
+</html>

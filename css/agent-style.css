@@ -1,0 +1,93 @@
+/* css/agent-style.css */
+
+/* Style for the active link in the agent's bottom navigation bar */
+.agent-nav-link.active {
+    color: #a2d2ff; /* text-custom-light-blue */
+}
+
+/* --- NEW: Form Styles for Agent App --- */
+.agent-form-input,
+.agent-form-select {
+    background-color: #374151; /* bg-gray-700 */
+    border: 1px solid #4b5563;  /* border-gray-600 */
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    color: white;
+}
+
+.agent-form-input:focus,
+.agent-form-select:focus {
+    outline: none;
+    border-color: #a2d2ff;
+    box-shadow: 0 0 0 2px rgba(162, 210, 255, 0.5);
+}
+
+/* css/agent-style.css */
+
+/* ... (existing styles) ... */
+
+/* --- NEW: Agent Route and Map Styles --- */
+#agent-map {
+    height: 300px;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    background-color: #1f2937; /* bg-gray-800 */
+}
+
+.agent-customer-marker {
+    width: 16px;
+    height: 16px;
+    background-color: #f59e0b; /* amber-500 */
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 8px #f59e0b;
+}
+
+.destination-item.visited {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.destination-item.visited .bg-green-600 {
+    background-color: #4b5563; /* bg-gray-600 */
+}
+
+/* css/agent-style.css */
+/* ... (existing styles) ... */
+
+/* --- NEW: Signature Modal Styles --- */
+#signature-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+}
+
+#signature-pad {
+    border: 2px dashed #4b5563; /* border-gray-600 */
+    border-radius: 0.5rem;
+    cursor: crosshair;
+}
+
+
+
+.agent-customer-marker {
+    width: 16px;
+    height: 16px;
+    background-color: #f59e0b; /* amber-500 */
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 8px #f59e0b;
+    transition: all 0.3s ease;
+}
+
+/* --- NEW: Style for the visited marker --- */
+.agent-customer-marker.visited {
+    background-color: #10b981; /* green-500 */
+    box-shadow: none;
+    opacity: 0.7;
+}
+
