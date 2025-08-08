@@ -5,7 +5,6 @@ import { api } from './api.js';
 import { App } from './state.js';
 
 export const apiBusiness = {
-    // --- NEW: CREATE ORDER FROM QUOTE LOGIC ---
     createOrderFromQuote(quoteId) {
         const quote = apiCore.get('quotes', quoteId);
         if (!quote) {
@@ -19,7 +18,6 @@ export const apiBusiness = {
 
         let customerId = quote.customerId;
 
-        // If the quote was for a lead, we must convert the lead to a customer first.
         if (quote.leadId) {
             const newCustomer = this.convertLeadToCustomer(quote.leadId);
             if (!newCustomer) {
@@ -34,10 +32,9 @@ export const apiBusiness = {
             return null;
         }
 
-        // Create a new order based on the quote's data
         const newOrderData = {
             customerId: customerId,
-            agentId: App.state.currentUser?.id || 1, // Assign to current user
+            agentId: App.state.currentUser?.id || 1, 
             date: new Date().toISOString().split('T')[0],
             status: 'pending',
             items: quote.items,
@@ -45,15 +42,10 @@ export const apiBusiness = {
         };
         const newOrder = apiCore.add('orders', newOrderData);
 
-        // Update the quote's status to prevent re-use
         quote.status = 'converted';
         apiCore.update('quotes', quote.id, quote);
 
-        apiCore.logEvent(
-            'QUOTE_CONVERTED', 
-            `Converted quote #${quote.id} to order #${newOrder.id}`,
-            { customerId: newOrder.customerId, orderId: newOrder.id } // Add context
-        );
+        apiCore.logEvent('QUOTE_CONVERTED', `Converted quote #${quoteId} to order #${newOrder.id}`);
         apiCore.save();
         api.notifications.addNotification('success', `Quote "${quote.quoteNumber}" converted to Order #${newOrder.id}.`, { orderId: newOrder.id });
 
@@ -176,30 +168,47 @@ export const apiBusiness = {
         return applicableTier ? applicableTier.price : sortedTiers[sortedTiers.length - 1]?.price || 0;
     },
 
-    getOrderTotals(order) {
+    getOrderTotals(order, targetCurrencyCode) {
+        const defaultCurrency = api.get('currencies').find(c => c.isDefault) || { code: 'EUR', rate: 1 };
+        const finalCurrencyCode = targetCurrencyCode || order.currencyCode || defaultCurrency.code;
+        const currency = api.get('currencies').find(c => c.code === finalCurrencyCode) || defaultCurrency;
         const defaultTaxRate = api.get('taxRates').find(t => t.isDefault) || { rate: 0, name: 'No Tax' };
 
         if (!order || !order.items) {
-            return { subtotal: 0, taxAmount: 0, total: 0, taxRate: defaultTaxRate };
+            return { subtotal: 0, taxAmount: 0, total: 0, taxRate: defaultTaxRate, currency: currency };
         }
 
-        const subtotal = order.items.reduce((total, item) => {
+        const subtotalInBase = order.items.reduce((total, item) => {
             const product = api.get('inventory', item.productId);
             if (product) {
-                const price = this.getProductPriceForQuantity(product, item.quantity, order.customerId);
-                return total + (price * item.quantity);
+                const priceInBase = this.getProductPriceForQuantity(product, item.quantity, order.customerId);
+                return total + (priceInBase * item.quantity);
             }
             return total;
         }, 0);
-        
+
+        const baseCurrency = api.get('currencies').find(c => c.rate === 1);
+        const subtotal = this.convertCurrency(subtotalInBase, baseCurrency.code, currency.code);
         const taxAmount = subtotal * defaultTaxRate.rate;
         const total = subtotal + taxAmount;
 
-        return { subtotal, taxAmount, total, taxRate: defaultTaxRate };
+        return { subtotal, taxAmount, total, taxRate: defaultTaxRate, currency: currency };
     },
 
-    calculateOrderTotal(order) {
-        return this.getOrderTotals(order).total;
+    convertCurrency(amount, fromCode, toCode) {
+        const currencies = apiCore.get('currencies');
+        const fromCurrency = currencies.find(c => c.code === fromCode);
+        const toCurrency = currencies.find(c => c.code === toCode);
+
+        if (!fromCurrency || !toCurrency) {
+            console.error("Currency conversion failed: Invalid currency code.", { fromCode, toCode });
+            return amount; 
+        }
+
+        const amountInBase = amount / fromCurrency.rate;
+        const convertedAmount = amountInBase * toCurrency.rate;
+        
+        return convertedAmount;
     },
 
     executeProductionOrder(productId, quantityToProduce) {
@@ -365,7 +374,6 @@ export const apiBusiness = {
             customerId: order.customerId,
             issueDate: new Date().toISOString().split('T')[0],
             dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
-            total: this.calculateOrderTotal(order),
             status: 'sent'
         };
 
@@ -373,11 +381,7 @@ export const apiBusiness = {
         newInvoice.invoiceNumber = `INV-2025-${String(invoiceCount).padStart(3, '0')}`;
         
         const savedInvoice = apiCore.add('invoices', newInvoice);
-        apiCore.logEvent(
-            'INVOICE_GENERATED', 
-            `Generated invoice ${savedInvoice.invoiceNumber} for Order #${orderId}`,
-            { customerId: savedInvoice.customerId, orderId: orderId, invoiceId: savedInvoice.id } 
-        );
+        apiCore.logEvent('INVOICE_GENERATED', `Generated invoice ${savedInvoice.invoiceNumber} for Order #${orderId}`);
         apiCore.save();
 
         showToast(`Invoice ${savedInvoice.invoiceNumber} created!`, 'success');
@@ -389,11 +393,7 @@ export const apiBusiness = {
         const invoice = apiCore.get('invoices', invoiceId);
         if (invoice) {
             invoice.status = 'paid';
-            apiCore.logEvent(
-                'INVOICE_PAID', 
-                `Marked invoice #${invoice.invoiceNumber} as paid.`,
-                { customerId: invoice.customerId, orderId: invoice.orderId, invoiceId: invoice.id } // Add context
-            );
+            apiCore.logEvent('INVOICE_PAID', `Marked invoice #${invoice.invoiceNumber} as paid.`);
             apiCore.save();
             showToast(`Invoice ${invoice.invoiceNumber} marked as paid.`, 'success');
             api.notifications.addNotification('info', `Invoice ${invoice.invoiceNumber} has been marked as paid.`, { invoiceId: invoice.id, type: 'invoice_paid' });

@@ -96,20 +96,30 @@ export const router = {
             let shouldBeVisible = false;
             if (!isLoggedIn) {
                 shouldBeVisible = false;
-            } else if (userRole === 'admin') {
+            } 
+            
+            else if (userRole === 'admin') {
                 shouldBeVisible = true;
-            } else if (userRole === 'sales') {
+            } 
+            
+            else if (userRole === 'sales') {
                 // --- UPDATED: Sales role can now see quotes ---
                 shouldBeVisible = ['dashboard', 'leads', 'quotes', 'orders', 'invoices', 'customers', 'agents', 'reports', 'customerContracts'].includes(linkHref);
-            } else if (userRole === 'inventory') {
+            } 
+            
+            else if (userRole === 'inventory') {
                 shouldBeVisible = ['dashboard', 'inventory', 'components', 'productionOrders', 'purchaseOrders', 'suppliers', 'reports'].includes(linkHref);
-            } else if (userRole === 'finance') {
+            } 
+            
+            else if (userRole === 'finance') {
                 shouldBeVisible = ['dashboard', 'orders', 'invoices', 'creditNotes', 'customers', 'reports', 'events', 'customerContracts'].includes(linkHref);
             }
             
-            if ((linkHref === 'users' || linkHref === 'taxRates') && userRole !== 'admin') {
+            console.debug(userRole);
+            if ((App.state.currentPage === 'users' || App.state.currentPage === 'taxRates' || App.state.currentPage === 'currencies') && userRole !== 'admin') {
                 shouldBeVisible = false;
             }
+    
 
             link.style.display = shouldBeVisible ? 'block' : 'none';
         });

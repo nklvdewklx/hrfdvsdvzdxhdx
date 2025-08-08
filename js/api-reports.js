@@ -2,8 +2,23 @@
 import { apiCore } from './api-core.js';
 import { apiBusiness } from './api-business.js';
 
+function calculateOrderProfit(order) {
+    if (order.status !== 'completed' && order.status !== 'shipped' && order.status !== 'delivered') {
+        return null;
+    }
+    return order.items.reduce((totalProfit, item) => {
+        const product = apiCore.get('inventory', item.productId);
+        if (product) {
+            const price = apiBusiness.getProductPriceForQuantity(product, item.quantity, order.customerId);
+            const itemProfit = (price - product.cost) * item.quantity;
+            return totalProfit + itemProfit;
+        }
+        return totalProfit;
+    }, 0);
+}
+
 export const apiReports = {
-    getSalesSummary(startDate, endDate) {
+    getSalesSummary(startDate, endDate, targetCurrencyCode) {
         let completedOrders = apiCore.get('orders').filter(o => o.status === 'completed');
 
         if (startDate && endDate) {
@@ -17,23 +32,19 @@ export const apiReports = {
             totalProfit: 0,
             completedOrders: completedOrders.length
         };
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
 
         completedOrders.forEach(order => {
-            let orderRevenue = 0;
-            let orderProfit = 0;
-            if (order.items) {
-                order.items.forEach(item => {
-                    const product = apiCore.get('inventory', item.productId);
-                    if (product) {
-                        const price = apiBusiness.getProductPriceForQuantity(product, item.quantity);
-                        orderRevenue += price * item.quantity;
-                        orderProfit += (price - product.cost) * item.quantity;
-                    }
-                });
-            }
-            summary.totalRevenue += orderRevenue;
-            summary.totalProfit += orderProfit;
+            const totalsInBase = apiBusiness.getOrderTotals(order, baseCurrency.code);
+            summary.totalRevenue += totalsInBase.total;
+            summary.totalProfit += (calculateOrderProfit(order) || 0);
         });
+
+        if (targetCurrencyCode) {
+            summary.totalRevenue = apiBusiness.convertCurrency(summary.totalRevenue, baseCurrency.code, targetCurrencyCode);
+            summary.totalProfit = apiBusiness.convertCurrency(summary.totalProfit, baseCurrency.code, targetCurrencyCode);
+        }
+
         return summary;
     },
     getTopProductsByRevenue(limit = 3, startDate, endDate) {
@@ -51,8 +62,8 @@ export const apiReports = {
                 order.items.forEach(item => {
                     const product = apiCore.get('inventory', item.productId);
                     if (product) {
-                        const price = apiBusiness.getProductPriceForQuantity(product, item.quantity);
-                        const revenue = price * item.quantity;
+                        const totals = apiBusiness.getOrderTotals({ items: [item] }, 'EUR');
+                        const revenue = totals.total;
                         if (!productRevenue[product.id]) {
                             productRevenue[product.id] = {
                                 productId: product.id,
@@ -76,7 +87,8 @@ export const apiReports = {
         unpaidInvoices.forEach(invoice => {
             const dueDate = new Date(invoice.dueDate);
             const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
-            const total = apiBusiness.calculateOrderTotal(apiCore.get('orders', invoice.orderId));
+            const totals = apiBusiness.getOrderTotals(apiCore.get('orders', invoice.orderId), 'EUR');
+            const total = totals.total;
             if (daysOverdue <= 30) {
                 buckets.current += total;
             } else if (daysOverdue <= 60) {
@@ -99,24 +111,31 @@ export const apiReports = {
             outOfStock: allStock.filter(item => item.totalStock === 0).length
         };
     },
-    getTopAgentsByRevenue(limit = 4) {
+    getTopAgentsByRevenue(limit = 4, targetCurrencyCode) {
         const agentSales = {};
         const completedOrders = apiCore.get('orders').filter(o => o.status === 'completed');
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
+
         completedOrders.forEach(order => {
             if (order.agentId) {
-                const total = apiBusiness.calculateOrderTotal(order);
+                const totalInBase = apiBusiness.getOrderTotals(order, baseCurrency.code).total;
                 if (!agentSales[order.agentId]) {
                     agentSales[order.agentId] = { agentId: order.agentId, totalRevenue: 0 };
                 }
-                agentSales[order.agentId].totalRevenue += total;
+                agentSales[order.agentId].totalRevenue += totalInBase;
             }
         });
+
         return Object.values(agentSales)
             .sort((a, b) => b.totalRevenue - a.totalRevenue)
             .slice(0, limit)
             .map(agentData => {
                 const agentInfo = apiCore.get('agents', agentData.agentId);
-                return { ...agentData, name: agentInfo ? agentInfo.name : 'Unknown' };
+                const finalRevenue = targetCurrencyCode 
+                    ? apiBusiness.convertCurrency(agentData.totalRevenue, baseCurrency.code, targetCurrencyCode)
+                    : agentData.totalRevenue;
+
+                return { ...agentData, totalRevenue: finalRevenue, name: agentInfo ? agentInfo.name : 'Unknown' };
             });
     },
     getRecentOrders(limit = 3) {
@@ -133,7 +152,8 @@ export const apiReports = {
 
         const customerRevenue = {};
         completedOrders.forEach(order => {
-            const total = apiBusiness.calculateOrderTotal(order);
+            const totals = apiBusiness.getOrderTotals(order, 'EUR');
+            const total = totals.total;
             if (!customerRevenue[order.customerId]) {
                 customerRevenue[order.customerId] = {
                     customerId: order.customerId,
@@ -150,21 +170,27 @@ export const apiReports = {
                 return { ...custData, name: customerInfo ? customerInfo.name : 'Unknown' };
             });
     },
-    getDailySalesForLastXDays(days = 7) {
+    getDailySalesForLastXDays(days = 7, targetCurrencyCode) {
         const today = new Date();
         const labels = [];
         const data = [];
         const completedOrders = apiCore.get('orders').filter(o => o.status === 'completed');
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
+        const targetCurrency = apiCore.get('currencies').find(c => c.code === targetCurrencyCode) || baseCurrency;
+
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(today.getDate() - i);
             const dayStr = date.toISOString().split('T')[0];
             const dayOfWeek = date.toLocaleString('en-US', { weekday: 'short' });
             labels.push(dayOfWeek);
-            const salesForDay = completedOrders
+            
+            const salesForDayInBase = completedOrders
                 .filter(order => order.date === dayStr)
-                .reduce((sum, order) => sum + apiBusiness.calculateOrderTotal(order), 0);
-            data.push(salesForDay);
+                .reduce((sum, order) => sum + apiBusiness.getOrderTotals(order, baseCurrency.code).total, 0);
+
+            const salesForDayConverted = apiBusiness.convertCurrency(salesForDayInBase, baseCurrency.code, targetCurrency.code);
+            data.push(salesForDayConverted);
         }
         return { labels, data };
     },
@@ -261,7 +287,8 @@ export const apiReports = {
         });
 
         let cogs = 0;
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.calculateOrderTotal(order), 0);
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
+        const totalRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.getOrderTotals(order, baseCurrency.code).total, 0);
 
         completedOrders.forEach(order => {
             if (order.items) {
@@ -277,10 +304,10 @@ export const apiReports = {
         return {
             totalRevenue,
             cogs,
-            grossProfit: totalRevenue - cogs
+            grossProfit: totalRevenue - cogs,
+            currency: baseCurrency
         };
     },
-    // NEW: Gathers all data for a specific customer
     getCustomerDetails(customerId) {
         const customer = apiCore.get('customers', customerId);
         if (!customer) return null;
@@ -289,7 +316,8 @@ export const apiReports = {
         const invoices = apiCore.get('invoices').filter(i => i.customerId == customerId);
         const completedOrders = orders.filter(o => o.status === 'completed');
         
-        const lifetimeRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.calculateOrderTotal(order), 0);
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
+        const lifetimeRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.getOrderTotals(order, baseCurrency.code).total, 0);
         
         return {
             customer,
@@ -305,7 +333,6 @@ export const apiReports = {
             }
         };
     },
-    // NEW: Gathers all data for a specific agent
     getAgentDetails(agentId) {
         const agent = apiCore.get('agents', agentId);
         if (!agent) return null;
@@ -313,8 +340,9 @@ export const apiReports = {
         const assignedCustomers = apiCore.get('customers').filter(c => c.agentId == agentId);
         const orders = apiCore.get('orders').filter(o => o.agentId == agentId);
         const completedOrders = orders.filter(o => o.status === 'completed');
+        const baseCurrency = apiCore.get('currencies').find(c => c.rate === 1);
 
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.calculateOrderTotal(order), 0);
+        const totalRevenue = completedOrders.reduce((sum, order) => sum + apiBusiness.getOrderTotals(order, baseCurrency.code).total, 0);
         
         return {
             agent,
@@ -329,7 +357,6 @@ export const apiReports = {
             }
         };
     },
-    // NEW: Gathers all data for a specific product (inventory item)
     getProductDetails(productId) {
         const product = apiCore.get('inventory', productId);
         if (!product) return null;
@@ -356,39 +383,6 @@ export const apiReports = {
             }
         };
     },
-
-    getCustomerActivity(customerId) {
-        const customer = apiCore.get('customers', customerId);
-        if (!customer) return [];
-
-        // 1. Get all automatically logged events for this customer
-        const loggedEvents = (apiCore.get('events') || [])
-            .filter(event => event.context && event.context.customerId == customerId)
-            .map(event => ({
-                type: 'event',
-                date: event.timestamp,
-                user: event.user,
-                action: event.action,
-                details: event.details,
-                context: event.context
-            }));
-            
-        // 2. Get all manually added notes
-        const manualNotes = (customer.notes || [])
-            .map(note => ({
-                type: 'note',
-                date: note.date,
-                details: note.text,
-                user: 'Agent Note' // Or you could store the agent who added it
-            }));
-        
-        // 3. Combine and sort them chronologically
-        const fullActivity = [...loggedEvents, ...manualNotes];
-        fullActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        return fullActivity;
-    },
-    // +++ NEW FUNCTION: Gathers daily stats for a specific agent +++
     getAgentDailySummary(agentId) {
         const todayStr = new Date().toISOString().split('T')[0];
         
@@ -398,7 +392,8 @@ export const apiReports = {
         const ordersToday = myOrders.filter(o => o.date === todayStr);
 
         const salesToday = ordersToday.reduce((sum, order) => {
-            return sum + apiBusiness.calculateOrderTotal(order);
+            const totals = apiBusiness.getOrderTotals(order);
+            return sum + totals.total;
         }, 0);
 
         return {

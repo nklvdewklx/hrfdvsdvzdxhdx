@@ -38,6 +38,21 @@ const defaultDb = {
         { id: 706, name: 'Kalamata Olives (kg)', cost: 4.50, stockBatches: [] },
         { id: 707, name: 'Olive Oil (L)', cost: 3.50, stockBatches: [] },
     ],
+
+    paymentMethods: [
+        { id: 1, name: 'Cash', enabled: true },
+        { id: 2, name: 'Credit Card', enabled: true },
+        { id: 3, name: 'Bank Transfer', enabled: true },
+        { id: 4, name: 'PayPal', enabled: false }
+    ],
+
+    currencies: [
+        { code: 'EUR', symbol: '€', name: 'Euro', rate: 1, isDefault: true },
+        { code: 'USD', symbol: '$', name: 'US Dollar', rate: 1.07, isDefault: false },
+        { code: 'GBP', symbol: '£', name: 'British Pound', rate: 0.85, isDefault: false },
+        { code: 'RON', symbol: 'L', name: 'Romanian Leu', rate: 4.98, isDefault: false }
+    ],
+    
     inventory: [
         {
             id: 201, name: 'Dill Pickles (500g Jar)', sku: 'PIC-DIL-500G', cost: 1.25,

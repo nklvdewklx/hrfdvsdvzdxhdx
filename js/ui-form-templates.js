@@ -72,6 +72,34 @@ export const formTemplates = {
             </div>
         `;
     },
+    currencies: (currency = {}) => {
+        const isEditing = !!currency.code; 
+        return `
+            <div>
+                <label class="block mb-1 text-sm text-custom-grey">Currency Name</label>
+                <input type="text" name="name" class="form-input" value="${currency.name || ''}" placeholder="e.g., US Dollar" required>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block mb-1 text-sm text-custom-grey">Code</label>
+                    <input type="text" name="code" class="form-input ${isEditing ? 'bg-gray-700' : ''}" value="${currency.code || ''}" placeholder="e.g., USD" ${isEditing ? 'readonly' : ''} required>
+                </div>
+                <div>
+                    <label class="block mb-1 text-sm text-custom-grey">Symbol</label>
+                    <input type="text" name="symbol" class="form-input" value="${currency.symbol || ''}" placeholder="e.g., $" required>
+                </div>
+            </div>
+            <div>
+                <label class="block mb-1 text-sm text-custom-grey">Exchange Rate</label>
+                <input type="number" name="rate" step="0.0001" class="form-input" value="${currency.rate || '1.00'}" required>
+                <p class="text-xs text-custom-grey mt-1">Relative to the base currency (EUR).</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="isDefault" name="isDefault" class="h-4 w-4 rounded bg-black/20 border-white/20 text-blue-500 focus:ring-blue-500" ${currency.isDefault ? 'checked' : ''}>
+                <label for="isDefault" class="text-sm text-custom-grey">Set as system's default currency</label>
+            </div>
+        `;
+    },
     customerContracts: (contract = {}) => {
         const productOptions = api.get('inventory').map(p => `<option value="${p.id}" ${contract.productId == p.id ? 'selected' : ''}>${p.name}</option>`).join('');
         const today = new Date().toISOString().split('T')[0];

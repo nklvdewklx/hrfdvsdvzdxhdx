@@ -369,6 +369,40 @@ export const createModals = (ui) => ({
         document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', this.closeAllModals));
     },
 
+    openInvoicePaymentModal(invoiceId) {
+        const paymentMethodOptions = api.get('paymentMethods')
+            .filter(pm => pm.enabled)
+            .map(pm => `<option value="${pm.id}">${pm.name}</option>`)
+            .join('');
+
+        const modalHtml = `
+        <div id="confirmModal" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+            <div class="glass-panel rounded-lg w-full max-w-sm transform transition-all duration-300">
+                <div class="p-6 text-center">
+                    <h2 class="text-xl font-bold text-white mb-2">Confirm Payment</h2>
+                    <p class="text-custom-grey mb-6">Select the payment method used for this invoice.</p>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm text-custom-grey text-left">Payment Method</label>
+                        <select id="paymentMethodSelect" class="form-select">${paymentMethodOptions}</select>
+                    </div>
+                    <div class="flex justify-center space-x-4">
+                        <button id="cancelConfirmBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Cancel</button>
+                        <button id="confirmPaymentBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">Mark as Paid</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        ui.elements.modalContainer.innerHTML = modalHtml;
+        document.getElementById('cancelConfirmBtn').addEventListener('click', this.closeAllModals);
+        document.getElementById('confirmPaymentBtn').addEventListener('click', () => {
+            const paymentMethodId = document.getElementById('paymentMethodSelect').value;
+            api.markInvoiceAsPaid(invoiceId, paymentMethodId);
+            this.closeAllModals();
+            router.renderCurrentPage();
+        });
+    },
+
     openAuthModal() {
         ui.elements.modalContainer.innerHTML = renderAuthModal();
         lucide.createIcons(); 

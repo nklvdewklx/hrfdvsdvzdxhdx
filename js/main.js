@@ -36,6 +36,7 @@ function handleFormSubmit(e) {
             break;
         case 'invoices':
         case 'taxRates':
+        case 'currencies':
             authorized = api.security.hasRole('admin');
             break;
         default:
@@ -134,6 +135,18 @@ function handleFormSubmit(e) {
                 });
             }
         }
+        if (resource === 'currencies') {
+            data.rate = parseFloat(data.rate);
+            data.isDefault = form.querySelector('[name="isDefault"]').checked;
+
+            if (data.isDefault) {
+                App.state.db.currencies.forEach(currency => {
+                    if (currency.code !== data.code) { 
+                        currency.isDefault = false;
+                    }
+                });
+            }
+        }
         Object.keys(data).forEach(key => {
             if (['price', 'cost', 'stock', 'agentId', 'customerId', 'shelfLifeDays', 'leadId'].includes(key)) {
                 const num = parseFloat(data[key]);
@@ -145,6 +158,10 @@ function handleFormSubmit(e) {
     if (App.state.currentEditId) {
         api.update(resource, App.state.currentEditId, data);
     } else {
+        if (resource === 'currencies' && api.get('currencies', data.code)) {
+            showToast(`Error: Currency with code "${data.code}" already exists.`, 'error');
+            return;
+        }
         if (resource === 'agents' || resource === 'customers' || resource === 'leads') {
             data.lat = 52.21; data.lng = 5.29;
         }

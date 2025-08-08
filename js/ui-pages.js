@@ -26,7 +26,7 @@ export const pageConfig = {
         exportHeaders: ['Quote #', 'Recipient Type', 'Recipient ID', 'Recipient Name', 'Date', 'Expiry Date', 'Total', 'Status'],
         getExportData: (quote) => {
             const recipient = quote.customerId ? api.get('customers', quote.customerId) : api.get('leads', quote.leadId);
-            const total = api.calculateOrderTotal(quote);
+            const totals = api.getOrderTotals(quote);
             return [
                 quote.quoteNumber,
                 quote.customerId ? 'Customer' : 'Lead',
@@ -34,14 +34,14 @@ export const pageConfig = {
                 recipient.name,
                 quote.date,
                 quote.expiryDate,
-                total.toFixed(2),
+                totals.total.toFixed(2),
                 quote.status
             ];
         },
         renderRow: (quote) => {
             const recipient = quote.customerId ? api.get('customers', quote.customerId) : api.get('leads', quote.leadId);
             const recipientType = quote.customerId ? 'customers' : 'leads';
-            const total = api.calculateOrderTotal(quote); 
+            const totals = api.getOrderTotals(quote); 
             const statusColors = {
                 draft: 'bg-gray-500 text-white',
                 sent: 'text-white bg-blue-500',
@@ -55,7 +55,7 @@ export const pageConfig = {
                 <td>${quote.quoteNumber}</td>
                 <td>${recipient?.name || 'N/A'} <span class="text-xs text-custom-grey">(${recipientType.slice(0, -1)})</span></td>
                 <td>${quote.date}</td>
-                <td>$${total.toFixed(2)}</td>
+                <td>${totals.currency.symbol}${totals.total.toFixed(2)}</td>
                 <td><span class="status-pill ${statusColors[quote.status] || ''}">${quote.status}</span></td>
                 <td>
                     <div class="flex space-x-2">
@@ -126,6 +126,30 @@ export const pageConfig = {
             </tr>`;
         },
         searchFields: ['name']
+    },
+    currencies: {
+        title: 'Manage Currencies',
+        addBtnText: 'New Currency',
+        headers: ['Name', 'Code', 'Symbol', 'Rate (vs Base)', 'Default', 'Actions'],
+        exportHeaders: ['Code', 'Name', 'Symbol', 'Rate', 'Is Default'],
+        getExportData: (currency) => [currency.code, currency.name, currency.symbol, currency.rate, currency.isDefault],
+        renderRow: (currency) => {
+            const defaultPill = currency.isDefault ? `<span class="status-pill status-completed">Yes</span>` : `<span class="text-custom-grey">No</span>`;
+            return `<tr>
+                <td>${currency.name}</td>
+                <td>${currency.code}</td>
+                <td class="text-center font-bold">${currency.symbol}</td>
+                <td>${currency.rate}</td>
+                <td>${defaultPill}</td>
+                <td>
+                    <div class="flex space-x-2">
+                        <i data-lucide="edit" class="w-4 h-4 cursor-pointer hover:text-blue-400 edit-btn" data-id="${currency.code}" data-resource="currencies"></i>
+                        <i data-lucide="trash-2" class="w-4 h-4 cursor-pointer hover:text-red-400 delete-btn" data-id="${currency.code}" data-resource="currencies"></i>
+                    </div>
+                </td>
+            </tr>`;
+        },
+        searchFields: ['name', 'code']
     },
     customerContracts: {
         title: 'Manage Customer Contracts',
@@ -241,7 +265,7 @@ export const pageConfig = {
             ];
         },
         renderRow: (order) => {
-            const total = api.calculateOrderTotal(order);
+            const totals = api.getOrderTotals(order); // FIX: Use the new currency-aware function
             const profit = calculateOrderProfit(order);
             const profitText = profit !== null ? `$${profit.toFixed(2)}` : `<span class="text-custom-grey">-</span>`;
             const profitColor = profit === null ? '' : profit > 0 ? 'text-green-400' : 'text-red-400';
@@ -261,7 +285,7 @@ export const pageConfig = {
                 <td><a href="#orders/${order.id}" class="text-custom-light-blue hover:underline">#${order.id}</a></td>
                 <td><a href="#customers/${order.customerId}" class="text-custom-light-blue hover:underline">${customer?.name || 'N/A'}</a></td>
                 <td>${order.date}</td>
-                <td>$${total.toFixed(2)}</td>
+                <td>${totals.currency.symbol}${totals.total.toFixed(2)}</td>
                 <td class="font-semibold ${profitColor}">${profitText}</td>
                 <td><span class="status-pill ${statusColors[order.status]}">${order.status}</span></td>
                 <td>
@@ -284,7 +308,7 @@ export const pageConfig = {
         getExportData: (invoice) => {
             const customer = api.get('customers', invoice.customerId);
             const originalOrder = api.get('orders', invoice.orderId);
-            const total = api.calculateOrderTotal(originalOrder);
+            const totals = api.getOrderTotals(originalOrder);
             return [
                 invoice.invoiceNumber,
                 invoice.customerId,
@@ -292,7 +316,7 @@ export const pageConfig = {
                 invoice.orderId,
                 invoice.issueDate,
                 invoice.dueDate,
-                total.toFixed(2),
+                totals.total.toFixed(2),
                 invoice.status
             ];
         },
@@ -300,7 +324,7 @@ export const pageConfig = {
             const statusColors = { paid: 'status-completed', sent: 'status-pending', draft: 'status-in-stock', overdue: 'status-cancelled' };
             const originalOrder = api.get('orders', invoice.orderId);
             const customer = api.get('customers', invoice.customerId);
-            const total = api.calculateOrderTotal(originalOrder); 
+            const totals = api.getOrderTotals(originalOrder); 
 
             const markAsPaidBtn = invoice.status !== 'paid' ? `<i data-lucide="file-check-2" class="w-4 h-4 cursor-pointer hover:text-green-400 mark-paid-btn" title="Mark as Paid" data-id="${invoice.id}"></i>` : '';
             
@@ -310,7 +334,7 @@ export const pageConfig = {
                 <td><a href="#orders/${invoice.orderId}" class="text-custom-light-blue hover:underline">#${invoice.orderId}</a></td>
                 <td>${invoice.issueDate}</td>
                 <td>${invoice.dueDate}</td>
-                <td>$${total.toFixed(2)}</td>
+                <td>${totals.currency.symbol}${totals.total.toFixed(2)}</td>
                 <td><span class="status-pill ${statusColors[invoice.status] || ''}">${invoice.status}</span></td>
                 <td>
                     <div class="flex space-x-2">
@@ -606,6 +630,7 @@ export function renderManagementPage(pageId, searchTerm = '', page = 1) {
         case 'users':
         case 'events':
         case 'taxRates':
+        case 'currencies':
             authorized = api.security.hasRole('admin');
             break;
         case 'reports':
